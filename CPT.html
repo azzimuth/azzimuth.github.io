@@ -307,9 +307,9 @@ function devicemotionhandler() {
 	
     if(debug_acc==1)
     {
-	    document.getElementById("ACC_X").innerHTML = event.accelerationIncludingGravity.x;
-    	document.getElementById("ACC_Y").innerHTML = event.accelerationIncludingGravity.y;
-    	document.getElementById("ACC_Z").innerHTML = event.accelerationIncludingGravity.z;
+	    document.getElementById("ACC_X").innerHTML = "Acc X: " + event.accelerationIncludingGravity.x;
+    	document.getElementById("ACC_Y").innerHTML = "Acc Y: " +  event.accelerationIncludingGravity.y;
+    	document.getElementById("ACC_Z").innerHTML = "Acc Z: " +  event.accelerationIncludingGravity.z;
     }
     magnitudeXYZ=Math.sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));
 	average_magnitudeXYZ+=magnitudeXYZ;  // running totals, for averaging
@@ -340,9 +340,9 @@ function deviceorientationhandler() {
 	
 	if(debug_gyr==1)
     {
-	   document.getElementById("GYR_A").innerHTML = event.alpha;
-	   document.getElementById("GYR_B").innerHTML = event.beta;
-	   document.getElementById("GYR_G").innerHTML = event.gamma;
+	   document.getElementById("GYR_A").innerHTML = "Gyro A: " + event.alpha;
+	   document.getElementById("GYR_B").innerHTML = "Gyro B: " +  event.beta;
+	   document.getElementById("GYR_G").innerHTML = "Gyro G: " +  event.gamma;
     }
 	magnitudeABG=Math.sqrt((event.alpha*event.alpha)+(event.beta*event.beta)+(event.gamma*event.gamma));
     average_magnitudeABG+=magnitudeABG; 
