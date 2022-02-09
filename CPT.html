@@ -134,7 +134,7 @@ var gyr_g=0;
 window.addEventListener("devicemotion", function(event){
     if(event.rotationRate.alpha || event.rotationRate.beta || event.rotationRate.gamma)
         window.getElementById('GYRO_PRESENT').innerHTML = "Gyro present";
-    if(event.acceleration.x || event.acceleration.y || event.acceleration.z)
+    if(event.accelerationIncludingGravity.x || event.accelerationIncludingGravity.y || event.accelerationIncludingGravity.z)
         window.getElementById('Acc_PRESENT').innerHTML = "Accelerometer present";
 });
 
