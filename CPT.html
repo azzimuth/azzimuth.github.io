@@ -569,55 +569,8 @@
         width = 460 - margin.left - margin.right,
         height = 400 - margin.top - margin.bottom;
 
-      var omission_data = [];
-      for (var i = 0; i < maxcount; i++) {
-        if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
-          omission_data.push({ x: i, y: 1 });
-        }
-      }
-      // append the svg object to the body of the page
-      var svg = d3.select("#svg_td")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform",
-          "translate(" + margin.left + "," + margin.top + ")");
-
-      // Add X axis
-      var x = d3.scaleLinear()
-        .domain([0, maxcount])
-        .range([0, width]);
-      svg.append("g")
-        .attr("transform", "translate(0," + height + ")")
-        .call(d3.axisBottom(x));
-
-      // Add Y axis
-      var y = d3.scaleLinear()
-        .domain([0, 1])
-        .range([height, 0]);
-      svg.append("g")
-        .call(d3.axisLeft(y));
-
-      // Add dots
-      svg.append('g')
-        .selectAll(".blue-dot")
-        .data(omission_data)
-        .enter()
-        .append("circle")
-        .attr("cx", function (d) { return x(d.x); })
-        .attr("cy", function (d) { return y(d.y); })
-        .attr("r", 1.5)
-        .attr("class", "blue-dot")
-
-      svg.append('g')
-        .selectAll(".red-dot")
-        .data(comissions)
-        .enter()
-        .append("circle")
-        .attr("cx", function (d) { return x(d.x); })
-        .attr("cy", function (d) { return y(d.y); })
-        .attr("r", 1.5)
-        .attr("class", "red-dot")
+      var svg = DrawDiagram();
+      AddLegend(svg);
 
       started = 0;
       var results;
@@ -1041,6 +994,84 @@
           clicks[count - 1]++; //detect clicks and multiple clicks during presentation 
         }
       }
+    }
+
+    function DrawDiagram() {
+      var omission_data = [];
+      for (var i = 0; i < maxcount; i++) {
+        if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
+          omission_data.push({ x: i, y: 1 });
+        }
+      }
+      // append the svg object to the body of the page
+      var svg = d3.select("#svg_td")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+      // Add X axis
+      var x = d3.scaleLinear()
+        .domain([0, maxcount])
+        .range([0, width]);
+      svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x));
+
+      // Add Y axis
+      var y = d3.scaleLinear()
+        .domain([0, 1])
+        .range([height, 0]);
+      svg.append("g")
+        .call(d3.axisLeft(y));
+
+      // Add dots
+      svg.append('g')
+        .selectAll(".blue-dot")
+        .data(omission_data)
+        .enter()
+        .append("circle")
+        .attr("cx", function (d) { return x(d.x); })
+        .attr("cy", function (d) { return y(d.y); })
+        .attr("r", 1.5)
+        .attr("class", "blue-dot")
+
+      svg.append('g')
+        .selectAll(".red-dot")
+        .data(comissions)
+        .enter()
+        .append("circle")
+        .attr("cx", function (d) { return x(d.x); })
+        .attr("cy", function (d) { return y(d.y); })
+        .attr("r", 1.5)
+        .attr("class", "red-dot")
+      return svg;
+    }
+
+    function AddLegend(svg) {
+      var keys = ["Omissions", "Comissions"];
+      var size = 20
+      SVG.selectAll("mydots")
+        .data(keys)
+        .enter()
+        .append("cicle")
+        .attr("x", 100)
+        .attr("y", function (d, i) { return 100 + i * (size + 5) }) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("r", 1.5)       
+        .style("fill", function (d) { return color(d) })
+
+      // Add one dot in the legend for each name.
+      SVG.selectAll("mylabels")
+        .data(keys)
+        .enter()
+        .append("text")
+        .attr("x", 100 + size * 1.2)
+        .attr("y", function (d, i) { return 100 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("fill", function (d) { return color(d) })
+        .text(function (d) { return d })
+        .attr("text-anchor", "left")
+        .style("alignment-baseline", "middle")
     }
 
   </script>
