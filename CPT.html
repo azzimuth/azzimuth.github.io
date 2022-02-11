@@ -17,6 +17,14 @@
       font-size: 12pt;
       font-family: Arial;
     }
+
+    .blue-dot {
+      fill: blue;
+    }
+
+    .red-dot {
+      fill: red;
+    }
   </style>
 
   <!-- JQuery no longer used -->
@@ -198,6 +206,7 @@
     var count = 0;                                  // global counter for presentations 
     var xaCount = [];                             //Array with counts when X after A was displayed
     var xaClicked = [];                           //Array with counts when user clicked after X after A was displayed
+    var comissions = [];                          //Array with counts when user clicked when they shouldn't
 
     // timer handle and variables
     var MyInt;  // presentation interval
@@ -560,8 +569,14 @@
         width = 460 - margin.left - margin.right,
         height = 400 - margin.top - margin.bottom;
 
+      var omission_data = [];
+      for (var i = 0; i < maxcount; i++) {
+        if (xaCount.find(e => e == i) && !xaClicked.fill(e => e == i)) {
+          omission_data.push({ x: i, y: 1 });
+        }
+      }
       // append the svg object to the body of the page
-      /*var svg = d3.select("#svg_td")
+      var svg = d3.select("#svg_td")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
@@ -570,7 +585,7 @@
 
       // Add X axis
       var x = d3.scaleLinear()
-        .domain([0, 4000])
+        .domain([0, maxcount])
         .range([0, width]);
       svg.append("g")
         .attr("transform", "translate(0," + height + ")")
@@ -578,21 +593,31 @@
 
       // Add Y axis
       var y = d3.scaleLinear()
-        .domain([0, 500000])
+        .domain([0, 1])
         .range([height, 0]);
       svg.append("g")
         .call(d3.axisLeft(y));
 
       // Add dots
       svg.append('g')
-        .selectAll("dot")
-        .data(data)
+        .selectAll(".blue-dot")
+        .data(omission_data)
         .enter()
         .append("circle")
-        .attr("cx", function (d) { return x(d.GrLivArea); })
-        .attr("cy", function (d) { return y(d.SalePrice); })
+        .attr("cx", function (d) { return x(d.x); })
+        .attr("cy", function (d) { return y(d.y); })
         .attr("r", 1.5)
-        .style("fill", "#69b3a2")*/
+        .attr("class", "blue-dot")
+
+      svg.append('g')
+        .selectAll(".red-dot")
+        .data(comissions)
+        .enter()
+        .append("circle")
+        .attr("cx", function (d) { return x(d.x); })
+        .attr("cy", function (d) { return y(d.y); })
+        .attr("r", 1.5)
+        .attr("class", "red-dot")
 
       started = 0;
       var results;
@@ -635,7 +660,7 @@
       results = myReactionTimeMeanSD(1 + (maxcount / 4), maxcount / 2, "RT_MEAN_SD_Q2");
       results = myReactionTimeMeanSD(1 + (maxcount / 2), 3 * maxcount / 4, "RT_MEAN_SD_Q3");
       results = myReactionTimeMeanSD(1 + (3 * maxcount / 4), maxcount, "RT_MEAN_SD_Q4");
-      document.getElementById("sums_clicks").value = "Sum clicks: " + sums_clicks;
+      document.getElementById("sums_clicks").innerHTML = "Sum clicks: " + sums_clicks;
 
       // calculate mean and SD for acceleration - start from [0] array position
       results = myAccelerationMeanSD(0, maxcount, "ACC_MEAN_SD_ALL");
@@ -979,6 +1004,7 @@
           }
           else {
             score -= 100;   // penalise wrong click
+            comissions.push({ x: count, y: 1 });
           }
         }
         clicks[count - 1]++; //detect clicks and multiple clicks during presentation
