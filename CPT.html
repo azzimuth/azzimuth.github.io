@@ -166,8 +166,8 @@
     var debug_gyr_mean = debug; // show the mean accelerometer mean readings for the whole time and each quarter
     var debug_motion_event = debug;
     var debug_orientation_event = debug;
-    var debug_emailed_data = debug; // show the data to be emailed
-    var debug_post_data_success = debug; // show post data success
+    var debug_emailed_data = 0; // show the data to be emailed
+    var debug_post_data_success = 0; // show post data success
 
     var debug_storage = debug; // show the data to be stored
     var store_locally = 0;  // store results locally - not needed if writing to server
@@ -571,7 +571,7 @@
 
       var omission_data = [];
       for (var i = 0; i < maxcount; i++) {
-        if (xaCount.find(e => e == i) && !xaClicked.fill(e => e == i)) {
+        if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
           omission_data.push({ x: i, y: 1 });
         }
       }
