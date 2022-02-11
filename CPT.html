@@ -564,11 +564,6 @@
     }
 
     function myStopFunction() {
-      // set the dimensions and margins of the graph
-      var margin = { top: 10, right: 30, bottom: 30, left: 60 },
-        width = 460 - margin.left - margin.right,
-        height = 400 - margin.top - margin.bottom;
-
       var svg = DrawDiagram();
       AddLegend(svg);
 
@@ -997,6 +992,10 @@
     }
 
     function DrawDiagram() {
+      // set the dimensions and margins of the graph
+      var margin = { top: 10, right: 30, bottom: 30, left: 60 },
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
       var omission_data = [];
       for (var i = 0; i < maxcount; i++) {
         if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
@@ -1058,7 +1057,7 @@
         .append("cicle")
         .attr("x", 100)
         .attr("y", function (d, i) { return 100 + i * (size + 5) }) // 100 is where the first dot appears. 25 is the distance between dots
-        .attr("r", 1.5)       
+        .attr("r", 1.5)
         .style("fill", function (d) { return color(d) })
 
       // Add one dot in the legend for each name.
