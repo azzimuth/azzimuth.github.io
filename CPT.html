@@ -635,7 +635,8 @@
       results = myReactionTimeMeanSD(1 + (maxcount / 4), maxcount / 2, "RT_MEAN_SD_Q2");
       results = myReactionTimeMeanSD(1 + (maxcount / 2), 3 * maxcount / 4, "RT_MEAN_SD_Q3");
       results = myReactionTimeMeanSD(1 + (3 * maxcount / 4), maxcount, "RT_MEAN_SD_Q4");
-
+      console.log("Sum clicks", sums_clicks);
+      
       // calculate mean and SD for acceleration - start from [0] array position
       results = myAccelerationMeanSD(0, maxcount, "ACC_MEAN_SD_ALL");
       results = myAccelerationMeanSD(0, maxcount / 4, "ACC_MEAN_SD_Q1");
