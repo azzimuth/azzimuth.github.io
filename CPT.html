@@ -18,12 +18,38 @@
       font-family: Arial;
     }
 
+    svg g circle {
+      stroke-width: 2px;
+      fill: none;
+    }
+
     .blue-dot {
-      fill: blue;
+      stroke: blue;
     }
 
     .red-dot {
-      fill: red;
+      stroke: red;
+    }
+
+    .black-dot {
+      stroke: black;
+    }
+
+    .blue-line {
+      stroke: blue;
+      stroke-width: 2px;
+    }
+
+    .legend rect {
+      fill: white;
+      stroke: black;
+      opacity: 0.8;
+    }
+
+    .dashed-line {
+      stroke: black;
+      stroke-width: 1px;
+      stroke-dasharray: 3, 3;
     }
   </style>
 
@@ -128,6 +154,13 @@
       -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
     ];
 
+    //Click coordinates
+    var clickCoords = [];
+
+    const params = new Proxy(new URLSearchParams(window.location.search), {
+      get: (searchParams, prop) => searchParams.get(prop),
+    });
+
     // get all acc and gyr data, if any.
     var acc_global_count = 0;
     var acc_t0 = 0;
@@ -140,13 +173,6 @@
     var gyr_b = 0;
     var gyr_g = 0;
 
-    window.addEventListener("devicemotion", function (event) {
-      if (event.rotationRate.alpha || event.rotationRate.beta || event.rotationRate.gamma)
-        window.getElementById('GYRO_PRESENT').innerHTML = "Gyro present";
-      if (event.accelerationIncludingGravity.x || event.accelerationIncludingGravity.y || event.accelerationIncludingGravity.z)
-        window.getElementById('Acc_PRESENT').innerHTML = "Accelerometer present";
-    });
-
     // version number
     var version_number = "9_2_cpt_ax_200ms";
 
@@ -157,15 +183,15 @@
     var started = 0;     // prevent starting twice
     var showclicks = 0;  // show clicks by changing the colour of the ax button (if used)
     var showstartclicks = 1; // show clicks by changing the colour of the start button 
-    var debug = 1;  // general debug - lots of data while running
-    var debug_rt = debug; // show the reaction time
-    var debug_acc = debug; // show accelerometer reading
-    var debug_gyr = debug; // show gyroscope reading
-    var debug_rt_mean = debug; // show the sum of ax clicks and mean reaction time results after running for the whole time and each quarter
-    var debug_acc_mean = debug; // show the mean accelerometer mean readings for the whole time and each quarter
-    var debug_gyr_mean = debug; // show the mean accelerometer mean readings for the whole time and each quarter
-    var debug_motion_event = debug;
-    var debug_orientation_event = debug;
+    var debug = params.debug === '1' || 0;  // general debug - lots of data while running
+    var debug_rt = params.debug_rt === '1' || debug; // show the reaction time
+    var debug_acc = params.debug_acc === '1' || debug; // show accelerometer reading
+    var debug_gyr = params.debug_gyr === '1' || debug; // show gyroscope reading
+    var debug_rt_mean = params.debug_rt_mean === '1' || debug; // show the sum of ax clicks and mean reaction time results after running for the whole time and each quarter
+    var debug_acc_mean = params.debug_acc_mean === '1' || debug; // show the mean accelerometer mean readings for the whole time and each quarter
+    var debug_gyr_mean = params.debug_gyr_mean === '1' || debug; // show the mean accelerometer mean readings for the whole time and each quarter
+    var debug_motion_event = params.debug_motion_event === '1' || debug;
+    var debug_orientation_event = params.debug_orientation_event === '1' || debug;
     var debug_emailed_data = 0; // show the data to be emailed
     var debug_post_data_success = 0; // show post data success
 
@@ -175,7 +201,7 @@
     // new control flags
     var need_user_id = 1;
     var emailing_data = 1;
-    var picture_presentation = 0;
+    var picture_presentation = params.picture_presentation === '1' || 0;
     var show_score = 1;
     var newhiscore = 0;  // flag for hiscore exceeded during game
 
@@ -200,7 +226,7 @@
     var wait_button_colour = "#ffff00";         // yellow
 
     // presentation constants and variables
-    var maxcount = 40;                          // Original: 400 around 11 minutes. can reduce while debugging - needs to be multiple of 4    
+    var maxcount = params.maxcount || 40;                          // Original: 400 around 11 minutes. can reduce while debugging - needs to be multiple of 4    
     var presentation_period = 2000;               // Original: 1.65 seconds - so total of 400 presentation is 11 minutes
     var presentation_duration = 200;              // Original: Show for 150 milliseconds, then black for rest of period 
     var count = 0;                                  // global counter for presentations 
@@ -249,6 +275,15 @@
     var average_magnitudeABG = 0;
     var magnitudeABG;
 
+    if (debug == 1) {
+      window.addEventListener("devicemotion", function (event) {
+        if (event.rotationRate.alpha || event.rotationRate.beta || event.rotationRate.gamma)
+          window.getElementById('GYRO_PRESENT').innerHTML = "Gyro present";
+        if (event.accelerationIncludingGravity.x || event.accelerationIncludingGravity.y || event.accelerationIncludingGravity.z)
+          window.getElementById('Acc_PRESENT').innerHTML = "Accelerometer present";
+      });
+    }
+
     // if browser and device supports the DeviceMotionEvent, we can add an event listener. 
     function myDeviceMotionAddListener() {
       if (window.DeviceMotionEvent != undefined) {
@@ -288,7 +323,8 @@
 
     // get the acceleration, find the magnitude and update the average during presentation
     function devicemotionhandler() {
-
+      if (!(event.accelerationIncludingGravity.x || event.accelerationIncludingGravity.y
+        || event.accelerationIncludingGravity.z)) return;
       acc_x = event.accelerationIncludingGravity.x;
       acc_y = event.accelerationIncludingGravity.y;
       acc_z = event.accelerationIncludingGravity.z;
@@ -319,21 +355,7 @@
       }
       magnitudeXYZ = Math.sqrt((acc_x * acc_x) + (acc_y * acc_y) + (acc_z * acc_z));
       average_magnitudeXYZ += magnitudeXYZ;  // running totals, for averaging
-
-      //  following does not seem to work...
-      //    if ( event.rotationRate )
-      //    {
-      //	    if(debug_gyr==1)
-      //	    {
-      //	     document.getElementById("GYR_A").innerHTML = event.rotationRate.alpha;
-      //	     document.getElementById("GYR_B").innerHTML = event.rotationRate.beta;
-      //	     document.getElementById("GYR_G").innerHTML = event.rotationRate.gamma;
-      //	    }
-      //	    magnitudeABG=Math.sqrt((event.rotationRate.alpha*event.rotationRate.alpha)+(event.rotationRate.beta*event.rotationRate.beta)+(event.rotationRate.gamma*event.rotationRate.gamma));
-      //      average_magnitudeABG+=magnitudeABG; 
-      //    }	  
-
-      acc_count++;   // need to count the number of samples, for averaging later		
+      acc_count++;   // need to count the number of samples, for averaging later
     }
 
     // get the orientation, find the magnitude and update the average during presentation
@@ -359,7 +381,7 @@
     function myTouchAddListener() {
       if (is_touch_device) {
         document.addEventListener('touchstart', touchstarthandler = function (event) {
-          myReactionTimeFunction();
+          myReactionTimeFunction(event);
           //      alert(event.touches.length);
         }, false);
 
@@ -404,17 +426,17 @@
       }
 
       if (picture_presentation == 1) {
-        if (letters[count] == "A") { document.getElementById("PRESENT_PICTURE").src = "7.png"; }
-        if (letters[count] == "B") { document.getElementById("PRESENT_PICTURE").src = "1.png"; }
-        if (letters[count] == "C") { document.getElementById("PRESENT_PICTURE").src = "2.png"; }
-        if (letters[count] == "D") { document.getElementById("PRESENT_PICTURE").src = "3.png"; }
-        if (letters[count] == "E") { document.getElementById("PRESENT_PICTURE").src = "4.png"; }
-        if (letters[count] == "F") { document.getElementById("PRESENT_PICTURE").src = "5.png"; }
-        if (letters[count] == "G") { document.getElementById("PRESENT_PICTURE").src = "6.png"; }
-        if (letters[count] == "H") { document.getElementById("PRESENT_PICTURE").src = "8.png"; }
-        if (letters[count] == "J") { document.getElementById("PRESENT_PICTURE").src = "9.png"; }
-        if (letters[count] == "L") { document.getElementById("PRESENT_PICTURE").src = "10.png"; }
-        if (letters[count] == "X") { document.getElementById("PRESENT_PICTURE").src = "12.png"; }
+        if (letters[count] == "A") { document.getElementById("PRESENT_PICTURE").src = "img/7.png"; }
+        if (letters[count] == "B") { document.getElementById("PRESENT_PICTURE").src = "img/1.png"; }
+        if (letters[count] == "C") { document.getElementById("PRESENT_PICTURE").src = "img/2.png"; }
+        if (letters[count] == "D") { document.getElementById("PRESENT_PICTURE").src = "img/3.png"; }
+        if (letters[count] == "E") { document.getElementById("PRESENT_PICTURE").src = "img/4.png"; }
+        if (letters[count] == "F") { document.getElementById("PRESENT_PICTURE").src = "img/5.png"; }
+        if (letters[count] == "G") { document.getElementById("PRESENT_PICTURE").src = "img/6.png"; }
+        if (letters[count] == "H") { document.getElementById("PRESENT_PICTURE").src = "img/8.png"; }
+        if (letters[count] == "J") { document.getElementById("PRESENT_PICTURE").src = "img/9.png"; }
+        if (letters[count] == "L") { document.getElementById("PRESENT_PICTURE").src = "img/10.png"; }
+        if (letters[count] == "X") { document.getElementById("PRESENT_PICTURE").src = "img/12.png"; }
       }
       else {
         document.getElementById("PRESENT_LETTER").innerHTML = letters[count];
@@ -453,7 +475,7 @@
       // delete the letter or picture after presentation for fixed time
       var timeout;
       if (picture_presentation == 1) {
-        timeout = setTimeout(function () { document.getElementById("PRESENT_PICTURE").src = "0.png"; }, presentation_duration);
+        timeout = setTimeout(function () { document.getElementById("PRESENT_PICTURE").src = "img/0.png"; }, presentation_duration);
       }
       else {
         timeout = setTimeout(function () { document.getElementById("PRESENT_LETTER").innerHTML = (" " + "<br>") }, presentation_duration);
@@ -506,7 +528,8 @@
     }
 
     function myStartingFunction() {
-
+      document.getElementById("svg_td").innerHTML = "";
+      document.getElementById("svg_clicks").innerHTML = "";
 
       if (debug == 1) {
         document.getElementById("USER_ID").innerHTML = "User id: " + userid;
@@ -540,7 +563,7 @@
         document.getElementById("AX_BUTTON").style.background = ax_button_colour;
       }
       if (picture_presentation == 1) {
-        document.getElementById("PRESENT_PICTURE").src = "0.png";
+        document.getElementById("PRESENT_PICTURE").src = "img/0.png";
         document.getElementById("START_BUTTON").style.background = start_button_clicked_colour;
         document.getElementById("START_BUTTON").value = "Click bananas after cherries!";
       }
@@ -564,8 +587,9 @@
     }
 
     function myStopFunction() {
-      var svg = DrawDiagram();
-      AddLegend(svg);
+      var svg = DrawClicksTimeline();
+      AddClicksTimelineLegend(svg);
+      DrawClicksCoords();
 
       started = 0;
       var results;
@@ -681,20 +705,20 @@
         }
       }
 
-      xmlhttp.open("POST", "https://ENTER_WEB_URL/checksenddata_ax_fruit.php", true);
-      xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-      xmlhttp.send("my_data=" + encodeURIComponent(JSON.stringify(combined_data)));
+      //xmlhttp.open("POST", "https://ENTER_WEB_URL/checksenddata_ax_fruit.php", true);
+      //xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      //xmlhttp.send("my_data=" + encodeURIComponent(JSON.stringify(combined_data)));
 
-      xmlhttp.onreadystatechange = function () {
+      /*xmlhttp.onreadystatechange = function () {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
           document.getElementById("POST_DATA_SUCCESS_ID").innerHTML = xmlhttp.responseText;
         };
-      };
+      };*/
 
       // if we have some sensor samples then email them
       if (acc_t0 > 0) {
         // server request 2
-        if (window.XMLHttpRequest) {
+        /* if (window.XMLHttpRequest) {
           // code for IE7+, Firefox, Chrome, Opera, Safari
           xmlhttp2 = new XMLHttpRequest();
           if (debug_post_data_success == 1) {
@@ -717,7 +741,7 @@
           if (xmlhttp2.readyState == 4 && xmlhttp2.status == 200) {
             document.getElementById("POST_DATA2_SUCCESS_ID").innerHTML = xmlhttp2.responseText;
           };
-        };
+        }; */
 
       }
 
@@ -837,7 +861,7 @@
       means_rt[n1 - 1] = rt_mean.toFixed(4);
       means_rt[n1] = rt_sd.toFixed(4);
       results_rt = 1;
-      return results_rt;
+      return rt_mean;
     }
 
     function myAccelerationMeanSD(an1, an2, aid) {
@@ -925,8 +949,9 @@
     }
 
 
-    function myReactionTimeFunction() {
+    function myReactionTimeFunction(event) {
       if (started == 1) {
+        clickCoords.push({ x: event.pageX, y: event.pageY });
         d = new Date();
         t2 = d.getTime();
         tr = t2 - t1;
@@ -948,11 +973,11 @@
             xclicked++;
             thisscore = presentation_period - tr + tr % 5;		 // round to 5 or 0
             score += thisscore;
-            xaClicked.push(count);
+            xaClicked.push({ count: count, tr: tr });
           }
           else {
             score -= 100;   // penalise wrong click
-            comissions.push({ x: count, y: 1 });
+            comissions.push({ x: count, y: -1 });
           }
         }
         clicks[count - 1]++; //detect clicks and multiple clicks during presentation
@@ -991,17 +1016,19 @@
       }
     }
 
-    function DrawDiagram() {
+    function DrawClicksTimeline() {
       // set the dimensions and margins of the graph
       var margin = { top: 10, right: 30, bottom: 30, left: 60 },
         width = 460 - margin.left - margin.right,
         height = 400 - margin.top - margin.bottom;
       var omission_data = [];
       for (var i = 0; i < maxcount; i++) {
-        if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
-          omission_data.push({ x: i, y: 1 });
+        if (xaCount.find(e => e == i) && !xaClicked.find(e => e.count == i)) {
+          omission_data.push({ x: i, y: -1 });
         }
       }
+
+      var maxRT = Math.max(...xaClicked.map(v => { return v.tr; }));
       // append the svg object to the body of the page
       var svg = d3.select("#svg_td")
         .attr("width", width + margin.left + margin.right)
@@ -1020,8 +1047,8 @@
 
       // Add Y axis
       var y = d3.scaleLinear()
-        .domain([0, 1])
-        .range([height, 0]);
+        .domain([-1, maxRT])
+        .range([height, -1]);
       svg.append("g")
         .call(d3.axisLeft(y));
 
@@ -1033,8 +1060,8 @@
         .append("circle")
         .attr("cx", function (d) { return x(d.x); })
         .attr("cy", function (d) { return y(d.y); })
-        .attr("r", 1.5)
-        .attr("class", "blue-dot")
+        .attr("r", 2.5)
+        .attr("class", "blue-dot");
 
       svg.append('g')
         .selectAll(".red-dot")
@@ -1043,45 +1070,163 @@
         .append("circle")
         .attr("cx", function (d) { return x(d.x); })
         .attr("cy", function (d) { return y(d.y); })
-        .attr("r", 1.5)
-        .attr("class", "red-dot")
+        .attr("r", 2.5)
+        .attr("class", "red-dot");
+
+      var meanRT = myReactionTimeMeanSD(1, maxcount, "RT_MEAN_SD_ALL");
+      svg.append('g')
+        .selectAll('.dashed-line')
+        .data([true])
+        .enter()
+        .append('line')
+        .attr('x1', function (d) { return x(0); })
+        .attr('y1', function (d) { return y(meanRT); })
+        .attr('x2', function (d) { return x(maxcount); })
+        .attr('y2', function (d) { return y(meanRT); })
+        .attr('class', 'dashed-line');
+
+      svg.append('g')
+        .selectAll(".black-dot")
+        .data(xaClicked)
+        .enter()
+        .append("circle")
+        .attr("cx", function (d) { return x(d.count); })
+        .attr("cy", function (d) { return y(d.tr); })
+        .attr("r", 2.5)
+        .attr("class", "black-dot");
       return svg;
     }
 
-    function AddLegend(svg) {
-      var keys = ["Omissions", "Comissions"];
-      var size = 20
-      svg.selectAll("mydots")
+    function AddClicksTimelineLegend(svg) {
+      var keys = ["Clicks", "Omissions", "Comission errors"];
+      var colors = ['black', 'blue', 'red'];
+      var size = 20;
+      var legendPadding = 5;
+
+      var g = svg.append("g")
+        .attr("class", "legend")
+        .attr("transform", "translate(50,30)")
+        .style("font-size", "12px");
+      var lb = g
+        .selectAll(".legend-box")
+        .data([true])
+        .enter()
+        .append("rect")
+        .attr("class", "legend-box");
+      var li = g
+        .selectAll(".legend-items")
+        .data([true])
+        .enter()
+        .append("g")
+        .attr("class", "legend-items");
+
+      li.selectAll(".legend-dots")
         .data(keys)
         .enter()
-        .append("cicle")
-        .attr("x", 100)
-        .attr("y", function (d, i) { return 100 + i * (size + 5) }) // 100 is where the first dot appears. 25 is the distance between dots
-        .attr("r", 1.5)
-        .style("fill", function (d) { return color(d) })
+        .append("circle")
+        .attr("cx", 100)
+        .attr("cy", function (d, i) { return 200 + i * (size + 5) })
+        .attr("r", 2.5)
+        .style("fill", "none")
+        .style("stroke-width", "2px")
+        .style("stroke", function (d, i) { return colors[i] });
 
-      // Add one dot in the legend for each name.
-      svg.selectAll("mylabels")
+
+      li.selectAll(".leged-texts")
         .data(keys)
         .enter()
         .append("text")
         .attr("x", 100 + size * 1.2)
-        .attr("y", function (d, i) { return 100 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
-        .style("fill", function (d) { return color(d) })
+        .attr("y", function (d, i) { return 190 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("fill", function (d, i) { return colors[i] })
         .text(function (d) { return d })
         .attr("text-anchor", "left")
-        .style("alignment-baseline", "middle")
+        .style("alignment-baseline", "middle");
+
+      var l = li.select("circle");
+      var lbbox = li.node().getBBox();
+
+      // Reposition and resize the box            
+      lb.attr("x", (lbbox.x - legendPadding))
+        .attr("y", (lbbox.y - legendPadding))
+        .attr("height", (lbbox.height + 2 * legendPadding))
+        .attr("width", (lbbox.width + 2 * legendPadding))
+    }
+
+    function DrawClicksCoords() {
+      var x0 = 160; var y0 = 157;
+      // set the dimensions and margins of the graph
+      var margin = { top: 10, right: 30, bottom: 30, left: 60 },
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+      // append the svg object to the body of the page
+      var svg = d3.select("#svg_clicks")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+      var maxX = Math.max(...clickCoords.map(coords => { return coords.x - x0; }));
+      var minX = Math.min(...clickCoords.map(coords => { return coords.x - x0; }));
+      var halfX = Math.max(maxX, Math.abs(minX));
+      var maxY = Math.max(...clickCoords.map(coords => { return coords.y - y0; }));
+      var minY = Math.min(...clickCoords.map(coords => { return coords.y - y0; }));
+      var halfY = Math.max(maxY, Math.abs(minY));
+      //x0 = 160 - halfX; y0 = 157 - halfY;
+      // Add X axis
+      var x = d3.scaleLinear()
+        .domain([-halfX, halfX])
+        .range([0, width]);
+      svg.append("g")
+        .attr("transform", "translate(0," + height / 2 + ")")
+        .call(d3.axisBottom(x));
+
+      // Add Y axis
+      var y = d3.scaleLinear()
+        .domain([-halfY, halfY])
+        .range([height, -1]);
+      svg.append("g")
+        .attr("transform", "translate(" + width / 2 + ",0)")
+        .call(d3.axisLeft(y));
+
+      // Add dots
+      svg.append('g')
+        .selectAll(".red-dot")
+        .data(clickCoords)
+        .enter()
+        .append("circle")
+        .attr("cx", function (d) { return x(d.x - x0); })
+        .attr("cy", function (d) { return y(d.y - y0); })
+        .attr("r", 2.5)
+        .attr("class", "red-dot");
+
+      svg.append('g')
+        .selectAll(".blue-line")
+        .data(clickCoords)
+        .enter()
+        .append("line")
+        .attr("x1", function (d, i) { return x(i == 0 ? 0 : clickCoords[i - 1].x - x0); })
+        .attr("y1", function (d, i) { return y(i == 0 ? 0 : clickCoords[i - 1].y - y0); })
+        .attr("x2", function (d, i) { return x(d.x - x0); })
+        .attr("y2", function (d, i) { return y(d.y - y0); })
+        .attr("r", 2.5)
+        .attr("class", "blue-line")
+        .style("display", function (d, i) { return i == 0 ? "none" : "" });
+      return svg;
     }
 
   </script>
 
 </head>
 
-<input type="button" id="START_BUTTON" value="Click to PLAY!" onclick="myStartFunction()"
-  style="font-size:20px;width:300px;height:30px;background-color:#ff0000" />
-<p></p>
-<!--Add instructions -->
-<textarea id="INSTRUCTIONS_TEXTBOX" cols="35" rows="22" wrap="soft">Instructions&#13;&#10;&#13;&#10;This game will test your attention and concentration.
+<body>
+  <input type="button" id="START_BUTTON" value="Click to PLAY!" onclick="myStartFunction()"
+    style="font-size:20px;width:300px;height:30px;background-color:#ff0000" />
+  <p></p>
+  <!--Add instructions -->
+  <textarea id="INSTRUCTIONS_TEXTBOX" cols="35" rows="22" wrap="soft">Instructions&#13;&#10;&#13;&#10;This game will test your attention and concentration.
 
 In this game you will see lots of different letters of the alphabet flashing by one by one on the screen.
 
@@ -1092,130 +1237,130 @@ Make sure you click as quickly and accurately as possible.
 The task will take approximately 8 minutes to complete.
 
 </textarea>
-<!--<input type="button" id="AX_BUTTON" value="Click for X after A" onclick="myReactionTimeFunction_button()" style="font-size:30px;width:250px;height:70px;background-color:#bfbfbf" />
+  <!--<input type="button" id="AX_BUTTON" value="Click for X after A" onclick="myReactionTimeFunction_button()" style="font-size:30px;width:250px;height:70px;background-color:#bfbfbf" />
 <p></p>
 -->
-<img class="hidden" src="0.png"> </img>
-<img class="hidden" src="1.png"> </img>
-<img class="hidden" src="2.png"> </img>
-<img class="hidden" src="3.png"> </img>
-<img class="hidden" src="4.png"> </img>
-<img class="hidden" src="5.png"> </img>
-<img class="hidden" src="6.png"> </img>
-<img class="hidden" src="7.png"> </img>
-<img class="hidden" src="8.png"> </img>
-<img class="hidden" src="9.png"> </img>
-<img class="hidden" src="10.png"> </img>
-<img class="hidden" src="12.png"> </img>
+  <img class="hidden" src="img/0.png"> </img>
+  <img class="hidden" src="img/1.png"> </img>
+  <img class="hidden" src="img/2.png"> </img>
+  <img class="hidden" src="img/3.png"> </img>
+  <img class="hidden" src="img/4.png"> </img>
+  <img class="hidden" src="img/5.png"> </img>
+  <img class="hidden" src="img/6.png"> </img>
+  <img class="hidden" src="img/7.png"> </img>
+  <img class="hidden" src="img/8.png"> </img>
+  <img class="hidden" src="img/9.png"> </img>
+  <img class="hidden" src="img/10.png"> </img>
+  <img class="hidden" src="img/12.png"> </img>
 
-<img id="PRESENT_PICTURE" src="" style="text-align:center;" width="284">
-<br><br>
-<div id="PRESENT_LETTER" style="font-family:verdana;font-size:100px;color:#40B3DF;padding-left:120px;">
-</div>
+  <img id="PRESENT_PICTURE" src="" style="text-align:center;" width="284">
+  <br><br>
+  <div id="PRESENT_LETTER" style="font-family:verdana;font-size:100px;color:#40B3DF;padding-left:120px;">
+  </div>
 
-<div id="USER_ID" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="SCORE" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="GYRO_PRESENT" style="font-family:verdana;font-size:20px;">Gyro not present
-</div>
-<div id="ACC_PRESENT" style="font-family:verdana;font-size:20px;">Accelerometer not present
-</div>
+  <div id="USER_ID" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="SCORE" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="GYRO_PRESENT" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="ACC_PRESENT" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="COUNT_ID" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="RT_ID" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="ACC_MAG_ID" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="GYR_MAG_ID" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="COUNT_ID" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="RT_ID" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="ACC_MAG_ID" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="GYR_MAG_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="TOUCHMOVE_XY" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="RT_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
-<div id="RT_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="TOUCHMOVE_XY" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="RT_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+  <div id="RT_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="RT_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="RT_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="RT_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="ACC_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
-<div id="ACC_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="RT_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="RT_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="RT_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="ACC_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+  <div id="ACC_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="ACC_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="ACC_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="ACC_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="ACC_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="ACC_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="ACC_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="GYR_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
-<div id="GYR_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="GYR_MEAN_SD_ALL" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+  <div id="GYR_MEAN_SD_Q1" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="GYR_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="GYR_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
-</div>
-<div id="GYR_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
-</div>
-
-
-
-<div id="LOCAL_STORAGE_ID" style="font-family:verdana;font-size:20px;">
-</div>
-
-<div id="EMAILED_DATA_ID" style="font-family:verdana;font-size:20px;">
-</div>
-
-<div id="POST_DATA_SUCCESS_ID" style="font-family:verdana;font-size:20px;">
-</div>
-
-<div id="EMAILED_DATA2_ID" style="font-family:verdana;font-size:20px;">
-</div>
-
-<div id="POST_DATA2_SUCCESS_ID" style="font-family:verdana;font-size:20px;">
-</div>
+  <div id="GYR_MEAN_SD_Q2" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="GYR_MEAN_SD_Q3" style="font-family:verdana;font-size:20px;">
+  </div>
+  <div id="GYR_MEAN_SD_Q4" style="font-family:verdana;font-size:20px;">
+  </div>
 
 
-<div id="RESULT_USER_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
 
-<div id="RESULT_LETTERS_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
+  <div id="LOCAL_STORAGE_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="RESULT_CLICKS_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
+  <div id="EMAILED_DATA_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="RESULT_RT_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
+  <div id="POST_DATA_SUCCESS_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="RESULT_ACC_MAG_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
+  <div id="EMAILED_DATA2_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="RESULT_GYR_MAG_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
-</div>
+  <div id="POST_DATA2_SUCCESS_ID" style="font-family:verdana;font-size:20px;">
+  </div>
 
-<div id="DM_EVENT" style="font-family:verdana;font-size:20px;"></div>
-<div id="DO_EVENT" style="font-family:verdana;font-size:20px;"></div>
-<div id="ACC_X" style="font-family:verdana;font-size:20px;"></div>
-<div id="ACC_Y" style="font-family:verdana;font-size:20px;"></div>
-<div id="ACC_Z" style="font-family:verdana;font-size:20px;"></div>
-<div id="GYR_A" style="font-family:verdana;font-size:20px;"></div>
-<div id="GYR_B" style="font-family:verdana;font-size:20px;"></div>
-<div id="GYR_G" style="font-family:verdana;font-size:20px;"></div>
-<div id="sums_clicks" style="font-family:verdana;font-size:20px;"></div>
-<svg id="svg_td"></svg>
-<svg id="svg_acc"></svg>
-<svg id="svg_gyro"></svg>
+
+  <div id="RESULT_USER_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="RESULT_LETTERS_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="RESULT_CLICKS_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="RESULT_RT_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="RESULT_ACC_MAG_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="RESULT_GYR_MAG_ID" style="font-family:verdana;font-size:20px;color:#DF0000;">
+  </div>
+
+  <div id="DM_EVENT" style="font-family:verdana;font-size:20px;"></div>
+  <div id="DO_EVENT" style="font-family:verdana;font-size:20px;"></div>
+  <div id="ACC_X" style="font-family:verdana;font-size:20px;"></div>
+  <div id="ACC_Y" style="font-family:verdana;font-size:20px;"></div>
+  <div id="ACC_Z" style="font-family:verdana;font-size:20px;"></div>
+  <div id="GYR_A" style="font-family:verdana;font-size:20px;"></div>
+  <div id="GYR_B" style="font-family:verdana;font-size:20px;"></div>
+  <div id="GYR_G" style="font-family:verdana;font-size:20px;"></div>
+  <div id="sums_clicks" style="font-family:verdana;font-size:20px;"></div>
+  <svg id="svg_td"></svg>
+  <svg id="svg_clicks"></svg>
+  <svg id="svg_gyro"></svg>
 </body>
 
 </html>

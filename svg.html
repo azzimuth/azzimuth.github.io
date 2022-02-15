@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        .blue-dot {
+            stroke: blue;
+            stroke-width: 2px;
+            fill: none;
+        }
+
+        .red-dot {
+            stroke: red;
+            stroke-width: 2px;
+            fill: none;
+        }
+
+        .legend rect {
+            fill: white;
+            stroke: black;
+            opacity: 0.8;
+        }
+
+        .legend-items text {
+            font-size: 20px;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript">
+        function myReactionTimeMeanSD(n1, n2, id) {
+            var ax_count = 0;
+            var omission_errors = 0;
+            var commission_errors = 0;
+            var ax_clicks = 0;
+            var ax_clicks_unique = 0;
+            var rt_mean = 0;
+            var rt_sd = 0;
+            var rt_variance = 0;
+            var i = 0;
+            for (i = n1; i < n2; i++) {
+                if (letters[i] == 'X') {
+                    if (letters[i - 1] == 'A') {
+                        ax_count++;
+                        if (clicks[i] == 0) {
+                            omission_errors++;       // count if AX is missed  
+                        }
+                        else {
+                            rt_mean += rt[i];         // only add reaction time for AX clicks
+                            ax_clicks += clicks[i];   // count number of clicks on the AX (could be >1)
+                            ax_clicks_unique++;     // count unique clicks on AX
+                        }
+                    }
+                    else {
+                        if (clicks[i] > 0) {
+                            commission_errors += clicks[i];   // count for any other X click (could be more than one per presentation)
+                        }
+                    }
+                }
+                else {
+                    if (clicks[i] > 0)                    // count for any other non-AX click (could be more than one per presentation)
+                    {
+                        commission_errors += clicks[i];
+                    }
+                }
+            }
+
+            if (rt_mean > 0)                           // work out the reaction time mean and standard deviation 
+            {
+                rt_mean = rt_mean / (ax_clicks_unique);  // average over no. of unique AX clicks
+                rt_variance = 0;
+                for (i = n1; i < n2; i++) {
+                    if (letters[i] == 'X') {
+                        if (letters[i - 1] == 'A') {
+                            if (clicks[i] > 0) {
+                                // note: if extra ax clicks then only the first rt was recorded
+                                rt_variance += (rt_mean - rt[i]) * (rt_mean - rt[i]);
+                            }
+                        }
+                    }
+                }
+                if (ax_clicks_unique > 1)   // check N-1 > 0 as we are using sample variance
+                {
+                    rt_sd = Math.sqrt(rt_variance / (ax_clicks_unique - 1));  // average over no. of unique AX clicks
+                    if (debug_rt_mean == 1) {
+                        document.getElementById(id).innerHTML = ("AX count=" + ax_count + " AX clicks=" + ax_clicks + " Omissions=" + omission_errors + " Errors=" + commission_errors + " MeanRT=" + rt_mean + " StdDevRT=" + rt_sd + "<br />");
+                    }
+                }
+                else {
+                    if (debug_rt_mean == 1) {
+                        document.getElementById(id).innerHTML = ("AX count=" + ax_count + " AX clicks=" + ax_clicks + " Omissions=" + omission_errors + " Errors=" + commission_errors + " MeanRT=" + rt_mean + " StdDevRT=0 since (N-1)=0" + "<br />");
+                    }
+                }
+            }
+            else {
+                if (debug_rt_mean == 1) {
+                    document.getElementById(id).innerHTML = ("AX count=" + ax_count + " AX clicks=" + ax_clicks + " Omissions=" + omission_errors + " Errors=" + commission_errors + " No AX clicks!" + "<br />");
+                }
+            }
+            //  var results_rt = [ ax_count, ax_clicks, omission_errors, commission_errors, rt_mean, rt_std ];
+            // nasty use of global array within function       
+            return rt_mean;
+        }
+        function DrawDiagram() {
+            // set the dimensions and margins of the graph
+            var margin = { top: 10, right: 30, bottom: 30, left: 60 },
+                width = 460 - margin.left - margin.right,
+                height = 400 - margin.top - margin.bottom;
+            var omission_data = [];
+            for (var i = 0; i < maxcount; i++) {
+                if (xaCount.find(e => e == i) && !xaClicked.find(e => e == i)) {
+                    omission_data.push({ x: i, y: -1 });
+                }
+            }
+            // append the svg object to the body of the page
+            var svg = d3.select("#svg_td")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform",
+                    "translate(" + margin.left + "," + margin.top + ")");
+
+            // Add X axis
+            var x = d3.scaleLinear()
+                .domain([0, maxcount])
+                .range([0, width]);
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            // Add Y axis
+            var y = d3.scaleLinear()
+                .domain([-1, height])
+                .range([height, -1]);
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add dots
+            svg.append('g')
+                .selectAll(".blue-dot")
+                .data(omission_data)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return x(d.x); })
+                .attr("cy", function (d) { return y(d.y); })
+                .attr("r", 2.5)
+                .attr("class", "blue-dot")
+
+            svg.append('g')
+                .selectAll(".red-dot")
+                .data(comissions)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return x(d.x); })
+                .attr("cy", function (d) { return y(d.y); })
+                .attr("r", 2.5)
+                .attr("class", "red-dot")
+            
+            var meanRT = myReactionTimeMeanSD(1, maxcount, "RT_MEAN_SD_ALL");
+            svg.append('g')
+                .select('.dashed-line')
+                .data(meanRT)
+                .enter()
+                .append('line')
+                .attr('x1', 0)
+                .attr('y1', meanRT)
+                .attr('x2', maxcount)
+                .attr('y2', meanRT)
+                .attr('class', 'dashed-line');
+
+            svg.append('g')
+                .selectAll(".black-dot")
+                .data(xaClicked)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return x(d.count); })
+                .attr("cy", function (d) { return y(d.rt); })
+                .attr("r", 2.5)
+                .attr("class", "black-dot");
+            return svg;
+        }
+
+        function AddLegend(svg) {
+            var keys = ["Omissions", "Comissions"];
+            var colors = ['blue', 'red'];
+            var size = 20;
+            var legendPadding = 5;
+
+            var g = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", "translate(50,30)")
+                .style("font-size", "12px");
+            var lb = g
+                .selectAll(".legend-box")
+                .data([true])
+                .enter()
+                .append("rect")
+                .attr("class", "legend-box");
+            var li = g
+                .selectAll(".legend-items")
+                .data([true])
+                .enter()
+                .append("g")
+                .attr("class", "legend-items");
+
+            li.selectAll(".legend-dots")
+                .data(keys)
+                .enter()
+                .append("circle")
+                .attr("cx", 100)
+                .attr("cy", function (d, i) { return 100 + i * (size + 5) })
+                .attr("r", 2.5)
+                .style("fill", "none")
+                .style("stroke-width", "2px")
+                .style("stroke", function (d, i) { return colors[i] });
+
+
+            li.selectAll(".leged-texts")
+                .data(keys)
+                .enter()
+                .append("text")
+                .attr("x", 100 + size * 1.2)
+                .attr("y", function (d, i) { return 90 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
+                .style("fill", function (d, i) { return colors[i] })
+                .text(function (d) { return d })
+                .attr("text-anchor", "left")
+                .style("alignment-baseline", "middle");
+
+            var l = li.select("circle");
+            var lbbox = li.node().getBBox();
+
+            // Reposition and resize the box            
+            lb.attr("x", (lbbox.x - legendPadding))
+                .attr("y", (lbbox.y - legendPadding))
+                .attr("height", (lbbox.height + 2 * legendPadding))
+                .attr("width", (lbbox.width + 2 * legendPadding))
+        }
+
+        var maxcount = 40;
+        var xaCount = [4, 13, 23, 33]; xaClicked = [4, 23, 33];
+        var comissions = [{ x: 3, y: -1 }, { x: 17, y: -1 }, { x: 25, y: -1 }];
+        var MyInt = 0;
+        document.addEventListener("DOMContentLoaded", function () {
+            var svg = DrawDiagram();
+            AddLegend(svg);
+        });
+    </script>
+</head>
+
+<body>
+    <svg id="svg_td"></svg>
+</body>
+
+</html>
