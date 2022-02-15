@@ -13,7 +13,7 @@
       display: none;
     }
 
-    textarea {
+    #INSTRUCTIONS_TEXTBOX {
       font-size: 12pt;
       font-family: Arial;
     }
@@ -194,6 +194,7 @@
     var debug_orientation_event = params.debug_orientation_event === '1' || debug;
     var debug_emailed_data = 0; // show the data to be emailed
     var debug_post_data_success = 0; // show post data success
+    var debug_timer = params.debug_timer === '1' || debug;
 
     var debug_storage = debug; // show the data to be stored
     var store_locally = 0;  // store results locally - not needed if writing to server
@@ -226,16 +227,18 @@
     var wait_button_colour = "#ffff00";         // yellow
 
     // presentation constants and variables
-    var maxcount = params.maxcount || 40;                          // Original: 400 around 11 minutes. can reduce while debugging - needs to be multiple of 4    
+    var maxcount = params.maxcount || 40;         // Original: 400 around 11 minutes. can reduce while debugging - needs to be multiple of 4    
     var presentation_period = 2000;               // Original: 1.65 seconds - so total of 400 presentation is 11 minutes
     var presentation_duration = 200;              // Original: Show for 150 milliseconds, then black for rest of period 
-    var count = 0;                                  // global counter for presentations 
+    var count = 0;                                // global counter for presentations 
     var xaCount = [];                             //Array with counts when X after A was displayed
     var xaClicked = [];                           //Array with counts when user clicked after X after A was displayed
     var comissions = [];                          //Array with counts when user clicked when they shouldn't
 
     // timer handle and variables
     var MyInt;  // presentation interval
+    var MyTimerInt; //timer inteval
+    var seconds = 0; //timer value in seconds
     var d;      // date
     var t1;     // reaction time start, from date
     var t2;     // reaction time end, from date
@@ -275,6 +278,10 @@
     var average_magnitudeABG = 0;
     var magnitudeABG;
 
+    document.addEventListener("DOMContentLoaded", function () {
+      var minutes = Math.floor((maxcount * 2) / 60);
+      document.getElementById("DURATION").innerHTML = minutes || 1;
+    });
     if (debug == 1) {
       window.addEventListener("devicemotion", function (event) {
         if (event.rotationRate.alpha || event.rotationRate.beta || event.rotationRate.gamma)
@@ -584,6 +591,14 @@
       }
 
       MyInt = setInterval(function () { myTimer() }, presentation_period);
+      if (debug_timer) {
+        document.getElementById("TIMER").innerHTML = "";
+        MyTimerInt = setInterval(() => {
+          seconds++;
+          var timerValueStr = new Date(seconds * 1000).toISOString().substr(11, 8);
+          document.getElementById("TIMER").innerHTML = timerValueStr;
+        }, 1000);
+      }
     }
 
     function myStopFunction() {
@@ -594,6 +609,7 @@
       started = 0;
       var results;
       clearInterval(MyInt);
+      clearInterval(MyTimerInt);
       myDeviceMotionRemoveListener();
       myDeviceOrientationRemoveListener();
       myTouchRemoveListener();
@@ -987,8 +1003,6 @@
       }
     }
 
-
-
     function myReactionTimeFunction_button() {
       if (is_touch_device) {
         // do nothing to avoid double count when there is a touch screen or using mouse
@@ -1023,7 +1037,7 @@
         height = 400 - margin.top - margin.bottom;
       var omission_data = [];
       for (var i = 0; i < maxcount; i++) {
-        if (xaCount.find(e => e == i) && !xaClicked.find(e => e.count == i)) {
+        if (xaCount.find(e => e == i) && !xaClicked.find(e => e.count == i + 1)) {
           omission_data.push({ x: i, y: -1 });
         }
       }
@@ -1124,8 +1138,8 @@
         .data(keys)
         .enter()
         .append("circle")
-        .attr("cx", 100)
-        .attr("cy", function (d, i) { return 200 + i * (size + 5) })
+        .attr("cx", 10)
+        .attr("cy", function (d, i) { return 20 + i * (size + 5) })
         .attr("r", 2.5)
         .style("fill", "none")
         .style("stroke-width", "2px")
@@ -1136,8 +1150,8 @@
         .data(keys)
         .enter()
         .append("text")
-        .attr("x", 100 + size * 1.2)
-        .attr("y", function (d, i) { return 190 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("x", 10 + size * 1.2)
+        .attr("y", function (d, i) { return 19 + i * (size + 5) + (size / 2) }) // 100 is where the first dot appears. 25 is the distance between dots
         .style("fill", function (d, i) { return colors[i] })
         .text(function (d) { return d })
         .attr("text-anchor", "left")
@@ -1174,7 +1188,7 @@
       var maxY = Math.max(...clickCoords.map(coords => { return coords.y - y0; }));
       var minY = Math.min(...clickCoords.map(coords => { return coords.y - y0; }));
       var halfY = Math.max(maxY, Math.abs(minY));
-      //x0 = 160 - halfX; y0 = 157 - halfY;
+
       // Add X axis
       var x = d3.scaleLinear()
         .domain([-halfX, halfX])
@@ -1223,20 +1237,25 @@
 
 <body>
   <input type="button" id="START_BUTTON" value="Click to PLAY!" onclick="myStartFunction()"
-    style="font-size:20px;width:300px;height:30px;background-color:#ff0000" />
+    style="font-size:20px;width:350px;height:30px;background-color:#ff0000" />
   <p></p>
   <!--Add instructions -->
-  <textarea id="INSTRUCTIONS_TEXTBOX" cols="35" rows="22" wrap="soft">Instructions&#13;&#10;&#13;&#10;This game will test your attention and concentration.
+  <div id="INSTRUCTIONS_TEXTBOX" style="width:350px;height:350px;border:solid 1px #000">
+    <p style="margin:5px;"><b>Instructions</b><br /><br />This game will test your attention
+      and
+      concentration.
+      <br /><br />
+      In this game you will see lots of different letters of the alphabet flashing by one by one on the screen.
+      <br /><br />
+      You will need to keep watching these letters and click only if you see X which comes immediately after A. So, keep
+      an eye out for both A and X.
+      <br /><br />
+      Make sure you click as quickly and accurately as possible.
+      <br /><br />
+      The task will take approximately <span id="DURATION">8</span> minute(s) to complete.
 
-In this game you will see lots of different letters of the alphabet flashing by one by one on the screen.
-
-You will need to keep watching these letters and click only if you see X which comes immediately after A. So, keep an eye out for both A and X.
-
-Make sure you click as quickly and accurately as possible.
-
-The task will take approximately 8 minutes to complete.
-
-</textarea>
+    </p>
+  </div>
   <!--<input type="button" id="AX_BUTTON" value="Click for X after A" onclick="myReactionTimeFunction_button()" style="font-size:30px;width:250px;height:70px;background-color:#bfbfbf" />
 <p></p>
 -->
@@ -1258,6 +1277,8 @@ The task will take approximately 8 minutes to complete.
   <div id="PRESENT_LETTER" style="font-family:verdana;font-size:100px;color:#40B3DF;padding-left:120px;">
   </div>
 
+  <div id="TIMER" style="font-family:verdana;font-size:20px;">
+  </div>
   <div id="USER_ID" style="font-family:verdana;font-size:20px;">
   </div>
   <div id="SCORE" style="font-family:verdana;font-size:20px;">
