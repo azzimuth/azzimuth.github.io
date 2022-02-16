@@ -797,6 +797,14 @@
           }
         }
       }
+      let myJson = JSON.stringify(acc_gyr);
+      let element = document.createElement('a');
+      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(myJson));
+      element.setAttribute('download', 'acc_gyr.json');
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     }
 
     function myReactionTimeMeanSD(n1, n2, id) {
